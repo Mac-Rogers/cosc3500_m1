@@ -58,6 +58,18 @@ int main() {
     std::vector<double> frameTimes;
     frameTimes.reserve(MAX_FRAMES);
     
+    // Pre-allocate all temporary vectors outside the loop (needed for both graphics and non-graphics)
+    std::vector<u8> ext_prev(width + 2);
+    std::vector<u8> ext_cur(width + 2);  
+    std::vector<u8> ext_next(width + 2);
+    
+    // Pre-compute constants (needed for both graphics and non-graphics)
+    const int VEC_BYTES = 32;
+    const int vec_iters = width / VEC_BYTES;
+    const int tail = width % VEC_BYTES;
+    const __m256i one8 = _mm256_set1_epi8(1);
+    const __m256i two8 = _mm256_set1_epi8(2);
+    const __m256i ff8 = _mm256_set1_epi8(static_cast<char>(0xFF));
 
 #ifdef ENABLE_GRAPHICS
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE)), "COSC3500 - s4800993 A1");
@@ -66,19 +78,6 @@ int main() {
     int iter = 0;
     while (window.isOpen() && iter < TOTAL_ITER) {
 #else
-    // Pre-allocate all temporary vectors outside the loop
-    std::vector<u8> ext_prev(width + 2);
-    std::vector<u8> ext_cur(width + 2);  
-    std::vector<u8> ext_next(width + 2);
-    
-    // Pre-compute constants
-    const int VEC_BYTES = 32;
-    const int vec_iters = width / VEC_BYTES;
-    const int tail = width % VEC_BYTES;
-    const __m256i one8 = _mm256_set1_epi8(1);
-    const __m256i two8 = _mm256_set1_epi8(2);
-    const __m256i ff8 = _mm256_set1_epi8(static_cast<char>(0xFF));
-    
     for (int iter = 0; iter < TOTAL_ITER; ++iter) {
 #endif
         auto t0 = std::chrono::high_resolution_clock::now();
