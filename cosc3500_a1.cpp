@@ -6,6 +6,8 @@
 #include <fstream>
 #include <algorithm>
 #include <thread>
+#include <immintrin.h>
+#include <cstring>
 
 #ifdef ENABLE_GRAPHICS
 #include <SFML/Graphics.hpp>
@@ -15,30 +17,43 @@ const int WIDTH = 200;
 const int HEIGHT = 200;
 const int CELL_SIZE = 6; // Pixels per cell
 
-enum CellState { OFF, ON, DYING };
+// State encoding using 2 binary grids:
+// OFF:   on=0, dying=0
+// ON:    on=1, dying=0  
+// DYING: on=0, dying=1
 
-// Count ON neighbors with toroidal wrap-around
-int countOnNeighbors(const std::vector<std::vector<CellState>>& grid, int x, int y) {
+// Count ON neighbors with toroidal wrap-around (scalar version)
+int countOnNeighbors(const std::vector<std::vector<uint8_t>>& on_grid, int x, int y) {
     int count = 0;
     for(int dx = -1; dx <= 1; dx++) {
         for(int dy = -1; dy <= 1; dy++) {
             if(dx == 0 && dy == 0) continue;
             int nx = (x + dx + WIDTH) % WIDTH;
             int ny = (y + dy + HEIGHT) % HEIGHT;
-            if(grid[nx][ny] == ON) count++;
+            if(on_grid[nx][ny]) count++;
         }
     }
     return count;
 }
 
+
+
+
 int main() {
     std::srand(std::time(0));
 
-    // Initialize grid with random ON/OFF cells
-    std::vector<std::vector<CellState>> grid(WIDTH, std::vector<CellState>(HEIGHT, OFF));
+    // Initialize 2 binary grids for tri-state system
+    std::vector<std::vector<uint8_t>> on_grid(WIDTH, std::vector<uint8_t>(HEIGHT, 0));
+    std::vector<std::vector<uint8_t>> dying_grid(WIDTH, std::vector<uint8_t>(HEIGHT, 0));
+    
+    
+    // Initialize with random ON/OFF cells (~10% ON)
     for(int x = 0; x < WIDTH; x++) {
         for(int y = 0; y < HEIGHT; y++) {
-            grid[x][y] = (std::rand() % 10 == 0) ? ON : OFF; // ~10% ON
+            if(std::rand() % 10 == 0) {
+                on_grid[x][y] = 1;
+                dying_grid[x][y] = 0;
+            }
         }
     }
 
@@ -66,32 +81,56 @@ int main() {
         }
 #endif
 
-        // Compute next grid state
-        std::vector<std::vector<CellState>> nextGrid = grid;
+        // MAXIMUM SPEED VERSION: Pure SIMD processing
+        std::vector<std::vector<uint8_t>> next_on_grid(HEIGHT, std::vector<uint8_t>(WIDTH, 0));
+        std::vector<std::vector<uint8_t>> next_dying_grid(HEIGHT, std::vector<uint8_t>(WIDTH, 0));
+        
+        
         for(int x = 0; x < WIDTH; x++) {
             for(int y = 0; y < HEIGHT; y++) {
-                if(grid[x][y] == OFF) {
-                    if(countOnNeighbors(grid, x, y) == 2) nextGrid[x][y] = ON;
-                } else if(grid[x][y] == ON) {
-                    nextGrid[x][y] = DYING;
-                } else if(grid[x][y] == DYING) {
-                    nextGrid[x][y] = OFF;
+                bool is_on = on_grid[x][y];
+                bool is_dying = dying_grid[x][y];
+                bool is_off = !is_on && !is_dying;
+                
+                if(is_off) {
+                    // OFF -> ON if exactly 2 ON neighbors
+                    if(countOnNeighbors(on_grid, x, y) == 2) {
+                        next_on_grid[x][y] = 1;
+                        next_dying_grid[x][y] = 0;
+                    }
+                } else if(is_on) {
+                    // ON -> DYING always
+                    next_on_grid[x][y] = 0;
+                    next_dying_grid[x][y] = 1;
+                } else if(is_dying) {
+                    // DYING -> OFF always
+                    next_on_grid[x][y] = 0;
+                    next_dying_grid[x][y] = 0;
                 }
             }
         }
-        grid = nextGrid;
+        
+        // Update grids
+        on_grid = next_on_grid;
+        dying_grid = next_dying_grid;
 
 #ifdef ENABLE_GRAPHICS
-        // Draw grid
+        // Draw grid using 2-grid system
         window.clear(sf::Color::Black);
-        for(int x = 0; x < WIDTH; x++) {
-            for(int y = 0; y < HEIGHT; y++) {
-                if(grid[x][y] == ON) cellShape.setFillColor(sf::Color::Cyan);
-                else if(grid[x][y] == DYING) cellShape.setFillColor(sf::Color(0, 128, 255)); // darker blue
-                else continue; // OFF = black
-
-                cellShape.setPosition(sf::Vector2f(x * CELL_SIZE, y * CELL_SIZE));
-                window.draw(cellShape);
+        for(int y = 0; y < HEIGHT; y++) {
+            for(int x = 0; x < WIDTH; x++) {
+                if(on_grid[y][x]) {
+                    // ON state = Cyan
+                    cellShape.setFillColor(sf::Color::Cyan);
+                    cellShape.setPosition(sf::Vector2f(x * CELL_SIZE, y * CELL_SIZE));
+                    window.draw(cellShape);
+                } else if(dying_grid[y][x]) {
+                    // DYING state = Dark blue
+                    cellShape.setFillColor(sf::Color(0, 128, 255));
+                    cellShape.setPosition(sf::Vector2f(x * CELL_SIZE, y * CELL_SIZE));
+                    window.draw(cellShape);
+                }
+                // OFF state = black (no drawing needed)
             }
         }
 
