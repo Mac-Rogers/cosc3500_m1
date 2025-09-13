@@ -138,6 +138,8 @@ void step_avx2(const u8* on_grid, const u8* dying_grid, u8* next_on_grid, u8* ne
     } // for each row
 }
 
+
+
 // A small initializer and timing harness (no graphics)
 int main() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
