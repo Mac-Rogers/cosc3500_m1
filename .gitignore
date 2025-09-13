@@ -69,3 +69,5 @@ detailed_frame_analysis.txt
 *.tmp
 *.temp
 *.log
+
+frame_timing_stats.txt
