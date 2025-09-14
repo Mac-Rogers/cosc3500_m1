@@ -83,15 +83,15 @@ def print_statistics(stats: dict):
         print("No statistics to display")
         return
     
-    print(f"  Count:           {stats['count']} frames")
-    print(f"  Mean:            {stats['mean']:.4f} ms")
-    print(f"  Median:          {stats['median']:.4f} ms")
-    print(f"  Standard Dev:    {stats['std_dev']:.4f} ms")
-    print(f"  Variance:        {stats['variance']:.6f} ms²")
-    
-    print(f"  Minimum:         {stats['min']:.4f} ms")
-    print(f"  Maximum:         {stats['max']:.4f} ms")
-    print(f"  Range:           {stats['range']:.4f} ms")
+    print(f"Count:           {stats['count']} frames")
+    print(f"Mean:            {stats['mean']:.4f} ms")
+    print(f"Median:          {stats['median']:.4f} ms")
+    print(f"Standard Dev:    {stats['std_dev']:.4f} ms")
+    print(f"Variance:        {stats['variance']:.6f} ms²")
+
+    print(f"Minimum:         {stats['min']:.4f} ms")
+    print(f"Maximum:         {stats['max']:.4f} ms")
+    print(f"Range:           {stats['range']:.4f} ms")
     
 def create_distribution_plots(frame_times: List[float], stats: dict):
     """
